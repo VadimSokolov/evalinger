@@ -69,6 +69,8 @@ plot.eprocess <- function(x, log_scale = TRUE, ...) {
 #' @param alpha Significance level (default 0.025).
 #' @param x_T Integer vector of treatment arm outcomes.
 #' @param x_C Integer vector of control arm outcomes.
+#' @param gs_c Optional calibrated OBF constant \eqn{c} for an OBF-style boundary
+#'   \eqn{z \ge c/\sqrt{t}}. If NULL (default), uses \code{qnorm(1 - alpha)}.
 #'
 #' @return Invisibly returns the \code{ggplot} object (or invisible NULL
 #'   for base graphics).
@@ -83,10 +85,10 @@ plot.eprocess <- function(x, log_scale = TRUE, ...) {
 #'
 #' @export
 plot_hybrid <- function(eproc, look_times, Nmax, alpha = 0.025,
-                        x_T, x_C) {
+                        x_T, x_C, gs_c = NULL) {
   stopifnot(inherits(eproc, "eprocess"))
   info_frac <- look_times / Nmax
-  z_alpha <- stats::qnorm(1 - alpha)
+  z_alpha <- if (is.null(gs_c)) stats::qnorm(1 - alpha) else gs_c
   obf <- z_alpha / sqrt(info_frac)
 
   # Compute z-statistics at each look

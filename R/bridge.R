@@ -13,6 +13,10 @@
 #' @param p_C_design Design alternative for control arm (default 0.30).
 #' @param gs_type Type of group sequential boundary: \code{"obf"} (O'Brien-Fleming,
 #'   default) or \code{"pocock"}.
+#' @param gs_c Optional calibrated OBF constant \eqn{c} for an OBF-style boundary
+#'   \eqn{z \ge c/\sqrt{t}}. If provided and \code{gs_type = "obf"}, the boundary
+#'   uses this constant instead of \code{qnorm(1 - alpha)}. This is useful for
+#'   matching simulation-calibrated group sequential boundaries.
 #'
 #' @return A data frame with one row per interim look and columns:
 #' \describe{
@@ -40,7 +44,8 @@
 hybrid_monitor <- function(x_T, x_C, look_times, lambda = NULL,
                            alpha = 0.025,
                            p_T_design = 0.45, p_C_design = 0.30,
-                           gs_type = "obf") {
+                           gs_type = "obf",
+                           gs_c = NULL) {
   stopifnot(length(x_T) == length(x_C))
   n_total <- length(x_T)
   Nmax <- max(look_times)
@@ -57,7 +62,7 @@ hybrid_monitor <- function(x_T, x_C, look_times, lambda = NULL,
 
   # GS boundaries
   info_frac <- look_times / Nmax
-  z_alpha <- stats::qnorm(1 - alpha)
+  z_alpha <- if (is.null(gs_c)) stats::qnorm(1 - alpha) else gs_c
 
   if (gs_type == "obf") {
     gs_bound <- z_alpha / sqrt(info_frac)

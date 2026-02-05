@@ -12,8 +12,9 @@
 #' @param methods Character vector of methods to compare. Options:
 #'   \code{"evalue"}, \code{"gs_obf"} (O'Brien-Fleming-like group sequential),
 #'   \code{"naive_p"} (repeated unadjusted p-values),
+#'   \code{"naive_bayes"} (naive Bayesian posterior threshold),
 #'   \code{"cal_bayes"} (calibrated Bayesian posterior probability).
-#'   Default includes all four.
+#'   Default includes all five.
 #' @param nrep Number of Monte Carlo replications (default 5000).
 #' @param seed Random seed (default 42).
 #' @param lambda Optional fixed betting fraction for the e-value method. If
@@ -55,11 +56,13 @@
 #' Under the null, both arms draw from \code{Bernoulli(p_C)}. Under the
 #' alternative, the treatment arm draws from \code{Bernoulli(p_T_alt)}.
 #'
-#' The group sequential method uses an O'Brien-Fleming-like alpha spending
-#' function with equally-spaced looks. The calibrated Bayesian method uses
-#' a \code{Beta(0.5, 0.5)} (Jeffreys) prior on each arm, computes the
-#' posterior probability \eqn{P(p_T > p_C \mid \text{data})}, and calibrates
-#' the decision threshold to achieve the nominal Type I error.
+#' The group sequential method uses an O'Brien--Fleming-like boundary of the
+#' form \eqn{z \ge c/\sqrt{t}} (where \eqn{t} is information fraction) and
+#' calibrates the constant \eqn{c} by simulation to achieve the nominal Type I
+#' error across the \code{n_looks} interim looks. The calibrated Bayesian method
+#' uses a \code{Beta(0.5, 0.5)} (Jeffreys) prior on each arm, computes the
+#' posterior probability \eqn{P(p_T > p_C \mid \text{data})}, and calibrates the
+#' posterior threshold to achieve the nominal Type I error across looks.
 #'
 #' \strong{Posterior probability computation.}
 #' The posterior probability \eqn{P(p_T > p_C \mid \text{data})} for
@@ -100,7 +103,7 @@
 simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
                                 alpha = 0.025,
                                 methods = c("evalue", "gs_obf", "naive_p",
-                                            "cal_bayes"),
+                                            "naive_bayes", "cal_bayes"),
                                 nrep = 5000, seed = 42, lambda = NULL,
                                 posterior_method = c("normal", "exact")) {
   posterior_method <- match.arg(posterior_method)
@@ -115,7 +118,9 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
 
   look_times <- round(seq(Nmax / n_looks, Nmax, length.out = n_looks))
   threshold_log_e <- log(1 / alpha)
-  obf_bounds <- .obf_boundaries(look_times, Nmax, alpha)
+  info_frac <- look_times / Nmax
+  obf_bounds <- NULL
+  gs_c <- NULL
 
   # --- Generate all trial data upfront as matrices (nrep x Nmax) ---
   set.seed(seed)
@@ -131,6 +136,9 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
   cumT_alt  <- t(apply(xT_alt_mat,  1, cumsum))[, look_times, drop = FALSE]
   cumC_alt  <- t(apply(xC_alt_mat,  1, cumsum))[, look_times, drop = FALSE]
 
+  # Shared nn matrix for interim looks
+  nn_looks <- matrix(look_times, nrow = nrep, ncol = length(look_times), byrow = TRUE)
+
   # Cumulative log-e-values for evalue method (nrep x Nmax matrices)
   if ("evalue" %in% methods) {
     D_null <- xT_null_mat - xC_null_mat
@@ -139,6 +147,21 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
     log_inc_alt  <- log(pmax(1 + lambda * D_alt,  .Machine$double.xmin))
     cum_log_e_null <- t(apply(log_inc_null, 1, cumsum))[, look_times, drop = FALSE]
     cum_log_e_alt  <- t(apply(log_inc_alt,  1, cumsum))[, look_times, drop = FALSE]
+  }
+
+  # Pre-compute z-statistics for methods using Wald z (GS and naive p)
+  if (any(c("gs_obf", "naive_p") %in% methods)) {
+    z_null <- .z_matrix(cumT_null, cumC_null, nn_looks)
+    z_alt  <- .z_matrix(cumT_alt,  cumC_alt,  nn_looks)
+  }
+
+  # Calibrate OBF-style constant c if needed:
+  # Reject if z_k >= c / sqrt(info_frac_k), i.e. max_k z_k * sqrt(info_frac_k) >= c.
+  if ("gs_obf" %in% methods) {
+    m_null <- apply(z_null * matrix(sqrt(info_frac), nrow = nrep, ncol = length(info_frac), byrow = TRUE),
+                    1, max)
+    gs_c <- as.numeric(stats::quantile(m_null, probs = 1 - alpha, names = FALSE))
+    obf_bounds <- gs_c / sqrt(info_frac)
   }
 
   # --- Calibrate Bayesian threshold (if needed) ---
@@ -176,14 +199,7 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
         stop_null <- tmp$stop_null; stop_alt <- tmp$stop_alt
 
       } else if (m == "gs_obf") {
-        # Z-statistics at each look: delta_hat / se
-        nn <- matrix(look_times, nrow = nrep, ncol = length(look_times), byrow = TRUE)
-        phat_T <- cumT / nn
-        phat_C <- cumC / nn
-        delta <- phat_T - phat_C
-        se <- sqrt(phat_T * (1 - phat_T) / nn + phat_C * (1 - phat_C) / nn)
-        se[se < 1e-12] <- 1e-6
-        z <- delta / se
+        z <- if (scenario == "null") z_null else z_alt
         bounds_mat <- matrix(obf_bounds, nrow = nrep, ncol = length(look_times), byrow = TRUE)
         crossed <- z >= bounds_mat
         .store_results(crossed, look_times, Nmax, scenario, nrep,
@@ -192,13 +208,7 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
         stop_null <- tmp$stop_null; stop_alt <- tmp$stop_alt
 
       } else if (m == "naive_p") {
-        nn <- matrix(look_times, nrow = nrep, ncol = length(look_times), byrow = TRUE)
-        phat_T <- cumT / nn
-        phat_C <- cumC / nn
-        delta <- phat_T - phat_C
-        se <- sqrt(phat_T * (1 - phat_T) / nn + phat_C * (1 - phat_C) / nn)
-        se[se < 1e-12] <- 1e-6
-        z <- delta / se
+        z <- if (scenario == "null") z_null else z_alt
         pvals <- stats::pnorm(z, lower.tail = FALSE)
         crossed <- pvals < alpha
         .store_results(crossed, look_times, Nmax, scenario, nrep,
@@ -206,10 +216,18 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
         rej_null <- tmp$rej_null; rej_alt <- tmp$rej_alt
         stop_null <- tmp$stop_null; stop_alt <- tmp$stop_alt
 
+      } else if (m == "naive_bayes") {
+        # Naive posterior threshold (not calibrated for optional stopping)
+        pp <- .posterior_prob_matrix(cumT, cumC, nn_looks, method = posterior_method)
+        crossed <- pp >= (1 - alpha)
+        .store_results(crossed, look_times, Nmax, scenario, nrep,
+                       rej_null, rej_alt, stop_null, stop_alt) -> tmp
+        rej_null <- tmp$rej_null; rej_alt <- tmp$rej_alt
+        stop_null <- tmp$stop_null; stop_alt <- tmp$stop_alt
+
       } else if (m == "cal_bayes") {
-        nn <- matrix(look_times, nrow = nrep, ncol = length(look_times), byrow = TRUE)
         # P(p_T > p_C | data) for independent Beta posteriors
-        pp <- .posterior_prob_matrix(cumT, cumC, nn, method = posterior_method)
+        pp <- .posterior_prob_matrix(cumT, cumC, nn_looks, method = posterior_method)
         crossed <- pp >= bayes_thresh
         .store_results(crossed, look_times, Nmax, scenario, nrep,
                        rej_null, rej_alt, stop_null, stop_alt) -> tmp
@@ -242,7 +260,9 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
       results = results,
       design = list(p_C = p_C, p_T_alt = p_T_alt, Nmax = Nmax,
                     n_looks = n_looks, alpha = alpha, nrep = nrep,
-                    lambda = lambda),
+                    lambda = lambda,
+                    gs_c = gs_c,
+                    bayes_thresh = if (exists("bayes_thresh")) bayes_thresh else NULL),
       raw = raw
     ),
     class = "ecomparison"
@@ -250,6 +270,17 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
 }
 
 # --- Internal helpers ---
+
+#' Compute Wald z-statistics at each look (vectorized)
+#' @keywords internal
+.z_matrix <- function(cumT, cumC, nn) {
+  phat_T <- cumT / nn
+  phat_C <- cumC / nn
+  delta <- phat_T - phat_C
+  se <- sqrt(phat_T * (1 - phat_T) / nn + phat_C * (1 - phat_C) / nn)
+  se[se < 1e-12] <- 1e-6
+  delta / se
+}
 
 #' Extract first crossing time from a logical matrix (nrep x n_looks)
 #' @keywords internal
@@ -365,6 +396,7 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
 
 #' @keywords internal
 .obf_boundaries <- function(look_times, Nmax, alpha) {
+  # Kept for backward compatibility; the main simulation uses calibration
   info_frac <- look_times / Nmax
   z_alpha <- stats::qnorm(1 - alpha)
   z_alpha / sqrt(info_frac)

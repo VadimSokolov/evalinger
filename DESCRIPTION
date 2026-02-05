@@ -1,0 +1,40 @@
+Package: evalinger
+Title: E-Values for Adaptive Clinical Trial Monitoring
+Version: 0.1.0
+Authors@R: c(
+    person("Alexandra", "Sokolova", role = c("aut"),
+           comment = "Oregon Health and Science University"),
+    person("Vadim", "Sokolov", role = c("aut", "cre"),
+           email = "vsokolov@gmu.edu",
+           comment = "George Mason University"))
+Description: Implements e-value and e-process methodology for interim monitoring
+    of adaptive clinical trials. Provides betting-martingale e-process construction
+    for two-arm binary trials, safe logrank tests for survival endpoints,
+    always-valid confidence sequences, futility monitoring, design calibration
+    (GROW optimal betting fractions, expected stopping times), and simulation tools
+    for comparing e-value monitoring with group sequential and Bayesian approaches.
+    Integrates with the established R clinical trials ecosystem (gsDesign, rpact,
+    survival). Based on the methodology described in Sokolova and Sokolov (2026),
+    "E-values for Adaptive Clinical Trials."
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: R (>= 4.1.0)
+Imports:
+    stats
+Suggests:
+    testthat (>= 3.0.0),
+    ggplot2,
+    gsDesign,
+    rpact,
+    survival,
+    safestats,
+    shiny,
+    bslib,
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+URL: https://github.com/vsokolov/evalinger
+BugReports: https://github.com/vsokolov/evalinger/issues

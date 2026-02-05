@@ -1,0 +1,203 @@
+---
+title: "Reproducing the Paper's Numerical Study"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reproducing the Paper's Numerical Study}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+## Overview
+
+This vignette reproduces the key numerical results from Sokolova and Sokolov
+(2026), "E-values for Adaptive Clinical Trials."  We compare four monitoring
+strategies for a two-arm binary trial:
+
+1. **E-value monitoring** (betting martingale with GROW-optimal lambda)
+2. **Group sequential** (O'Brien-Fleming-like alpha spending)
+3. **Naive repeated testing** (unadjusted p-values at each look)
+4. **Calibrated Bayesian** (posterior probability with calibrated threshold)
+
+## Design Scenario
+
+We consider a control arm response rate of $p_C = 0.30$ and a treatment arm
+rate under the alternative of $p_T = 0.45$ (a clinically meaningful 15
+percentage-point difference).  The maximum sample size is $N_{\max} = 200$ per
+arm, with four equally-spaced interim looks.
+
+```{r design}
+library(evalinger)
+
+p_C <- 0.30
+p_T <- 0.45
+Nmax <- 200
+n_looks <- 4
+alpha <- 0.025
+```
+
+## GROW-Optimal Betting Fraction
+
+```{r grow}
+lam <- grow_lambda(p_T, p_C)
+g <- expected_growth_rate(lam, p_T, p_C)
+tau_approx <- expected_stopping_time(lam, p_T, p_C, alpha)
+
+cat("Optimal lambda:", round(lam, 4), "\n")
+cat("Expected growth rate:", round(g, 5), "\n")
+cat("Approximate stopping time:", round(tau_approx), "per arm\n")
+```
+
+## Sensitivity to Lambda
+
+A grid search shows how the expected sample size varies with the betting
+fraction and the true treatment effect:
+
+```{r grid}
+grid <- grow_lambda_grid(p_C = 0.30, delta_grid = c(0.10, 0.15, 0.20),
+                         alpha = 0.025)
+# Show optimal per delta
+for (d in unique(grid$delta)) {
+  sub <- grid[grid$delta == d, ]
+  best <- sub[which.min(sub$expected_n), ]
+  cat(sprintf("delta = %.2f: optimal lambda = %.2f, E[N] = %.0f\n",
+              d, best$lambda, best$expected_n))
+}
+```
+
+## Simulation Comparison
+
+We now run the full comparison.  The simulation generates `nrep` independent
+trials under both the null ($p_T = p_C$) and the alternative ($p_T > p_C$),
+applying each monitoring method at the pre-specified look times.
+
+```{r comparison, cache = TRUE}
+set.seed(42)
+cmp <- simulate_comparison(
+  p_C = p_C, p_T_alt = p_T, Nmax = Nmax, n_looks = n_looks,
+  alpha = alpha, nrep = 5000, seed = 42
+)
+cmp
+```
+
+The results demonstrate the key properties discussed in the paper:
+
+- The **e-value method** controls Type I error at the nominal level (and often
+  conservatively so), with competitive power and the advantage of being valid
+  at arbitrary stopping times.
+- The **group sequential** method controls Type I error when analyses are
+  restricted to the pre-specified looks, but cannot accommodate unscheduled
+  analyses.
+- **Naive repeated testing** inflates the Type I error rate substantially.
+- The **calibrated Bayesian** method can achieve approximate error control
+  through threshold calibration, but requires scenario-specific calibration.
+
+## E-Process Sample Paths
+
+We illustrate the e-process accumulation of evidence with individual sample
+paths:
+
+```{r paths, fig.height = 6}
+set.seed(42)
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+
+# Under the alternative
+x_T_alt <- rbinom(Nmax, 1, p_T)
+x_C_alt <- rbinom(Nmax, 1, p_C)
+ep_alt <- eprocess_binary(x_T_alt, x_C_alt, lambda = lam, alpha = alpha)
+plot(seq_len(Nmax), ep_alt$log_evalue, type = "l", col = "steelblue",
+     xlab = "Observations per arm", ylab = "log(E)",
+     main = "E-process under alternative (p_T = 0.45)")
+abline(h = log(1 / alpha), col = "red", lty = 2)
+if (ep_alt$rejected) abline(v = ep_alt$rejection_time, col = "gray", lty = 3)
+
+# Under the null
+x_T_null <- rbinom(Nmax, 1, p_C)
+x_C_null <- rbinom(Nmax, 1, p_C)
+ep_null <- eprocess_binary(x_T_null, x_C_null, lambda = lam, alpha = alpha)
+plot(seq_len(Nmax), ep_null$log_evalue, type = "l", col = "steelblue",
+     xlab = "Observations per arm", ylab = "log(E)",
+     main = "E-process under null (p_T = p_C = 0.30)")
+abline(h = log(1 / alpha), col = "red", lty = 2)
+```
+
+Under the alternative, the e-process climbs steadily and crosses the rejection
+threshold.  Under the null, it fluctuates around zero and remains well below
+the threshold.
+
+## Hybrid Monitor: E-Process vs Group Sequential
+
+The `hybrid_monitor` function runs both methods side by side on the same data:
+
+```{r hybrid}
+set.seed(42)
+x_T <- rbinom(Nmax, 1, p_T)
+x_C <- rbinom(Nmax, 1, p_C)
+hm <- hybrid_monitor(x_T, x_C, look_times = c(50, 100, 150, 200),
+                     lambda = lam, alpha = alpha)
+print(hm)
+```
+
+## Platform Trial Example
+
+For a platform trial with multiple treatment arms sharing a common control,
+the `platform_monitor` function manages arm-wise e-processes and applies the
+e-BH procedure for multiplicity control:
+
+```{r platform}
+set.seed(42)
+K <- 4
+n <- 200
+x_C <- rbinom(n, 1, 0.30)
+x_T_list <- list(
+  rbinom(n, 1, 0.45),  # effective
+  rbinom(n, 1, 0.30),  # null
+  rbinom(n, 1, 0.40),  # moderate
+  rbinom(n, 1, 0.30)   # null
+)
+
+pm <- platform_monitor(K = K, look_times = c(50, 100, 150, 200),
+                       x_C = x_C, x_T_list = x_T_list,
+                       alpha = 0.025, fdr_alpha = 0.05)
+pm$summary
+```
+
+## Confidence Sequence
+
+The always-valid confidence sequence narrows over time while maintaining
+simultaneous coverage:
+
+```{r cs}
+set.seed(42)
+x_T <- rbinom(300, 1, 0.45)
+x_C <- rbinom(300, 1, 0.30)
+cs <- confseq_binary(x_T, x_C, alpha = 0.05)
+
+nn <- seq_len(cs$n)
+plot(nn, cs$delta_hat, type = "l", ylim = range(c(cs$lower, cs$upper)),
+     xlab = "Observations per arm", ylab = "Treatment effect",
+     main = "Always-valid 95% confidence sequence")
+polygon(c(nn, rev(nn)), c(cs$lower, rev(cs$upper)),
+        col = rgb(0.27, 0.51, 0.71, 0.2), border = NA)
+lines(nn, cs$lower, col = "steelblue", lty = 2)
+lines(nn, cs$upper, col = "steelblue", lty = 2)
+abline(h = 0, col = "gray", lty = 3)
+abline(h = 0.15, col = "darkgreen", lty = 3)  # true effect
+```
+
+## Summary
+
+The **evalinger** package provides a complete workflow for e-value-based
+clinical trial monitoring: from design calibration through interim analysis
+to final reporting.  The key advantage of the e-value framework is the
+separation of statistical validity from the analysis schedule, giving DSMBs
+the flexibility to analyze data at any time without compromising error
+control guarantees.

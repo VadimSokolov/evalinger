@@ -1,0 +1,134 @@
+---
+title: "Getting Started with evalinger"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with evalinger}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4
+)
+```
+
+## Overview
+
+The **evalinger** package implements e-value and e-process methodology for
+interim monitoring of adaptive clinical trials.  E-values provide a measure of
+evidence that can be accumulated over time without inflating the Type I error
+rate, even when analyses are conducted at arbitrary (data-dependent) times.
+
+This vignette walks through a minimal working example: designing a trial,
+running the e-process monitor, and interpreting the results.
+
+## Design: Choosing the Betting Fraction
+
+Consider a two-arm randomized trial comparing a treatment with response
+probability $p_T = 0.45$ against a control with $p_C = 0.30$.  The first step
+is to compute the GROW-optimal betting fraction---the value that maximizes the
+expected rate of evidence accumulation under the design alternative.
+
+```{r grow}
+library(evalinger)
+
+lam <- grow_lambda(p_T = 0.45, p_C = 0.30)
+cat("GROW-optimal lambda:", round(lam, 4), "\n")
+```
+
+The expected log-growth rate under the alternative determines how quickly the
+e-process is expected to reach the rejection threshold:
+
+```{r growth-rate}
+g <- expected_growth_rate(lam, p_T = 0.45, p_C = 0.30)
+tau <- expected_stopping_time(lam, p_T = 0.45, p_C = 0.30, alpha = 0.025)
+cat("Growth rate:", round(g, 5), "per observation\n")
+cat("Expected stopping time:", round(tau), "per arm\n")
+```
+
+## Calibration: Sample Size Planning
+
+The `edesign_binary` function combines the analytic approximation with Monte
+Carlo simulation to determine the maximum sample size per arm needed to achieve
+a target power:
+
+```{r calibrate}
+des <- edesign_binary(p_C = 0.30, delta = 0.15, alpha = 0.025, power = 0.80,
+                      nrep = 2000, seed = 42)
+des
+```
+
+## Running the E-Process
+
+With the design in hand, we simulate a trial and compute the e-process:
+
+```{r eprocess}
+set.seed(42)
+N <- 200
+x_T <- rbinom(N, 1, 0.45)
+x_C <- rbinom(N, 1, 0.30)
+
+ep <- eprocess_binary(x_T, x_C, lambda = lam, alpha = 0.025)
+summary(ep)
+```
+
+The e-process can be visualized to show the accumulation of evidence over time:
+
+```{r plot-eprocess}
+plot(ep)
+```
+
+## Always-Valid Confidence Sequence
+
+An always-valid confidence sequence (CS) provides interval estimates for the
+treatment effect that are valid at every sample size simultaneously:
+
+```{r confseq}
+cs <- confseq_binary(x_T, x_C, alpha = 0.05)
+plot(cs)
+```
+
+## Incremental Monitoring
+
+In practice, data arrives in batches.  The `emonitor` object supports
+incremental updates, suitable for real-time DSMB monitoring:
+
+```{r monitor}
+mon <- emonitor(alpha = 0.025, lambda = lam)
+
+# First interim: 50 patients per arm
+set.seed(1)
+mon <- update(mon, x_T = rbinom(50, 1, 0.45), x_C = rbinom(50, 1, 0.30))
+print(mon)
+
+# Second interim: 50 more
+mon <- update(mon, x_T = rbinom(50, 1, 0.45), x_C = rbinom(50, 1, 0.30))
+print(mon)
+```
+
+## Futility Assessment
+
+If the treatment effect is likely too small to be clinically meaningful, the
+confidence sequence can be used to declare futility:
+
+```{r futility}
+set.seed(42)
+x_T_weak <- rbinom(300, 1, 0.32)
+x_C_weak <- rbinom(300, 1, 0.30)
+cs_weak <- confseq_binary(x_T_weak, x_C_weak)
+fut <- futility_cs(cs_weak, delta_min = 0.10)
+cat("Futility declared:", !is.na(fut$first_futile), "\n")
+if (!is.na(fut$first_futile)) {
+  cat("First futile at observation:", fut$first_futile, "\n")
+}
+```
+
+## Next Steps
+
+See `vignette("paper-demo")` for a full reproduction of the simulation study
+from Sokolova and Sokolov (2026), including comparisons with group sequential
+and Bayesian monitoring approaches.

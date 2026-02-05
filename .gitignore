@@ -1,0 +1,18 @@
+# R package build artifacts
+*.tar.gz
+*.Rcheck/
+man/
+Meta/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# R session
+.Rhistory
+.RData
+.Rproj.user/
+
+# Editor
+*.swp
+*~

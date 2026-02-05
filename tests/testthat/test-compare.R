@@ -6,7 +6,7 @@ test_that("simulate_comparison returns correct structure", {
   expect_true(is.data.frame(cmp$results))
   expect_true(all(c("method", "null_rej", "alt_rej",
                      "avg_n_null", "avg_n_alt") %in% names(cmp$results)))
-  expect_equal(nrow(cmp$results), 4)  # default 4 methods
+  expect_equal(nrow(cmp$results), 5)  # default 5 methods
 })
 
 test_that("e-value method controls Type I error", {

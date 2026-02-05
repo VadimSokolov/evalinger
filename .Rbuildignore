@@ -2,3 +2,4 @@
 ^README\.md$
 ^\.github$
 ^LICENSE\.md$
+^inst/shiny/deploy\.R$

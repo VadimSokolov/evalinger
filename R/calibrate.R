@@ -105,6 +105,17 @@ edesign_binary <- function(p_C, delta, alpha = 0.025, power = 0.80,
   )
 }
 
+#' Print an E-Value Design Object
+#'
+#' Display the design parameters for an e-value-based trial, including
+#' arm response rates, betting fraction, growth rate, expected stopping
+#' time, and simulated operating characteristics.
+#'
+#' @param x An \code{"edesign"} object from \code{\link{edesign_binary}}.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{x}.
+#'
 #' @export
 print.edesign <- function(x, ...) {
   cat("E-value design for two-arm binary trial\n")

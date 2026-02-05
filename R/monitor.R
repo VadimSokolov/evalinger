@@ -43,12 +43,22 @@ emonitor <- function(alpha = 0.025, lambda = 0.31, delta_min = NULL) {
 
 #' Update an E-Value Monitor with New Data
 #'
+#' Add a new batch of patient outcomes to an existing e-value monitor and
+#' update all statistics (e-value, always-valid p-value, confidence sequence).
+#'
 #' @param object An \code{"emonitor"} object.
 #' @param x_T Integer vector of new treatment arm outcomes (0/1).
-#' @param x_C Integer vector of new control arm outcomes (0/1), same length as x_T.
-#' @param ... Ignored.
+#' @param x_C Integer vector of new control arm outcomes (0/1), same length
+#'   as \code{x_T}.
+#' @param ... Additional arguments (ignored).
 #'
 #' @return Updated \code{"emonitor"} object.
+#'
+#' @examples
+#' mon <- emonitor(alpha = 0.025, lambda = 0.31)
+#' set.seed(1)
+#' mon <- update(mon, x_T = rbinom(50, 1, 0.45), x_C = rbinom(50, 1, 0.30))
+#' print(mon)
 #'
 #' @export
 update.emonitor <- function(object, x_T, x_C, ...) {

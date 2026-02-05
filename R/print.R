@@ -1,3 +1,13 @@
+#' Print an E-Process Object
+#'
+#' Display a concise summary of an e-process, including the endpoint type,
+#' sample size, betting fraction, final e-value, and rejection status.
+#'
+#' @param x An \code{"eprocess"} object.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{x}.
+#'
 #' @export
 print.eprocess <- function(x, ...) {
   cat("E-process (", x$endpoint, " endpoint)\n", sep = "")
@@ -19,6 +29,17 @@ print.eprocess <- function(x, ...) {
   invisible(x)
 }
 
+#' Summarize an E-Process Object
+#'
+#' Display a detailed summary of an e-process, including the endpoint type,
+#' sample size, betting fraction, alpha level, final and maximum e-values,
+#' always-valid p-value, and rejection status.
+#'
+#' @param object An \code{"eprocess"} object.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{object}.
+#'
 #' @export
 summary.eprocess <- function(object, ...) {
   cat("E-process summary\n")
@@ -45,6 +66,17 @@ summary.eprocess <- function(object, ...) {
   invisible(object)
 }
 
+#' Print an E-Value Monitor
+#'
+#' Display the current state of an e-value monitor, including the cumulative
+#' sample size, current e-value, always-valid p-value, confidence sequence,
+#' and rejection status.
+#'
+#' @param x An \code{"emonitor"} object.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{x}.
+#'
 #' @export
 print.emonitor <- function(x, ...) {
   cat("E-value monitor\n")
@@ -64,11 +96,29 @@ print.emonitor <- function(x, ...) {
   invisible(x)
 }
 
+#' Summarize an E-Value Monitor
+#'
+#' @param object An \code{"emonitor"} object.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{object}.
+#'
 #' @export
 summary.emonitor <- function(object, ...) {
   print.emonitor(object, ...)
 }
 
+#' Print a Comparison Results Object
+#'
+#' Display a formatted table comparing the performance of different monitoring
+#' methods, including Type I error rate, power, and average sample size under
+#' both the null and alternative hypotheses.
+#'
+#' @param x An \code{"ecomparison"} object from \code{\link{simulate_comparison}}.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{x}.
+#'
 #' @export
 print.ecomparison <- function(x, ...) {
   cat("Monitoring method comparison\n")
@@ -94,6 +144,16 @@ print.ecomparison <- function(x, ...) {
   invisible(x)
 }
 
+#' Print a Confidence Sequence Object
+#'
+#' Display the current state of an always-valid confidence sequence,
+#' including the number of observations and the latest confidence interval.
+#'
+#' @param x A \code{"confseq"} object from \code{\link{confseq_binary}}.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{x}.
+#'
 #' @export
 print.confseq <- function(x, ...) {
   cat("Confidence sequence for treatment effect\n")

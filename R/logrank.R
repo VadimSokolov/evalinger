@@ -10,7 +10,7 @@
 #' @param arm Factor or integer vector: treatment arm indicator (0 = control,
 #'   1 = treatment).
 #' @param theta Design alternative for the hazard ratio (default 0.7,
-#'   i.e., 30\% reduction in hazard).
+#'   i.e., 30 percent reduction in hazard).
 #' @param alpha Significance level (default 0.025).
 #'
 #' @return An object of class \code{"eprocess"} with components:
@@ -43,7 +43,7 @@
 #' n <- 100
 #' arm <- rep(0:1, each = n/2)
 #' time <- rexp(n, rate = ifelse(arm == 1, 0.7, 1.0))
-#' status <- rbinom(n, 1, 0.8)  # 80% event rate
+#' status <- rbinom(n, 1, 0.8)  # 80 pct event rate
 #' ep <- eprocess_logrank(time, status, arm, theta = 0.7)
 #' summary(ep)
 #' }

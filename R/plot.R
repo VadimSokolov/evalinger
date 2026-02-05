@@ -194,7 +194,12 @@ plot_hybrid <- function(eproc, look_times, Nmax, alpha = 0.025,
 #' @param x An \code{"ecomparison"} object from \code{\link{simulate_comparison}}.
 #' @param ... Additional arguments (ignored).
 #'
-#' @return Invisibly returns the \code{ggplot} object or invisible NULL.
+#' @return Invisibly returns the \code{ggplot} object or invisible \code{NULL}.
+#'
+#' @examples
+#' cmp <- simulate_comparison(p_C = 0.30, p_T_alt = 0.45, Nmax = 200,
+#'                            n_looks = 4, nrep = 500, seed = 1)
+#' plot(cmp)
 #'
 #' @export
 plot.ecomparison <- function(x, ...) {
@@ -246,6 +251,23 @@ plot.ecomparison <- function(x, ...) {
   invisible(list(p1 = p1, p2 = p2, p3 = p3))
 }
 
+#' Plot Comparison Results (Convenience Wrapper)
+#'
+#' A convenience wrapper for \code{\link{plot.ecomparison}} that dispatches
+#' to the S3 plot method for \code{"ecomparison"} objects.
+#'
+#' @param x An \code{"ecomparison"} object from \code{\link{simulate_comparison}}.
+#' @param ... Additional arguments passed to \code{\link{plot.ecomparison}}.
+#'
+#' @return Invisibly returns the \code{ggplot} object(s) or invisible \code{NULL}.
+#'
+#' @examples
+#' cmp <- simulate_comparison(p_C = 0.30, p_T_alt = 0.45, Nmax = 200,
+#'                            n_looks = 4, nrep = 500, seed = 1)
+#' plot_comparison(cmp)
+#'
+#' @seealso \code{\link{simulate_comparison}}, \code{\link{plot.ecomparison}}
+#'
 #' @export
 plot_comparison <- function(x, ...) {
   if (!inherits(x, "ecomparison")) {

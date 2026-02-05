@@ -6,7 +6,7 @@
 #'
 #' @param x_T Integer vector of treatment arm binary outcomes (0/1).
 #' @param x_C Integer vector of control arm binary outcomes (0/1).
-#' @param alpha Significance level (default 0.05 for a 95\% CS).
+#' @param alpha Significance level (default 0.05 for a 95 percent CS).
 #' @param method Method for CS construction. Currently \code{"betting"} (default),
 #'   which uses a Wald-type interval with a time-uniform boundary based on the
 #'   law of the iterated logarithm.
@@ -79,6 +79,24 @@ confseq_binary <- function(x_T, x_C, alpha = 0.05, method = "betting",
   )
 }
 
+#' Plot a Confidence Sequence
+#'
+#' Visualize the always-valid confidence sequence for the treatment effect
+#' over the course of the trial. Shows the point estimate and confidence
+#' band at each sample size.
+#'
+#' @param x A \code{"confseq"} object from \code{\link{confseq_binary}}.
+#' @param ... Additional arguments (ignored).
+#'
+#' @return Invisibly returns \code{x}.
+#'
+#' @examples
+#' set.seed(42)
+#' x_T <- rbinom(200, 1, 0.45)
+#' x_C <- rbinom(200, 1, 0.30)
+#' cs <- confseq_binary(x_T, x_C)
+#' plot(cs)
+#'
 #' @export
 plot.confseq <- function(x, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {

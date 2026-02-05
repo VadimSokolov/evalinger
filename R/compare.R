@@ -18,6 +18,30 @@
 #' @param seed Random seed (default 42).
 #' @param lambda Optional fixed betting fraction for the e-value method. If
 #'   NULL, uses the GROW-optimal fraction.
+#' @param posterior_method Method for computing the Bayesian posterior
+#'   probability \eqn{P(p_T > p_C \mid \text{data})} when
+#'   \code{"cal_bayes"} is included in \code{methods}. One of:
+#'   \describe{
+#'     \item{\code{"normal"}}{(Default.) Normal approximation to the
+#'       difference of independent Beta posteriors. Each Beta posterior is
+#'       approximated by its mean and variance, and the probability is
+#'       obtained via \code{\link[stats]{pnorm}}.
+#'       Highly accurate for per-arm sample sizes \eqn{\ge 10}; extremely fast
+#'       because it operates on entire matrices without any loops or numerical
+#'       integration.}
+#'     \item{\code{"exact"}}{Exact computation using the regularized
+#'       incomplete beta function. For independent posteriors
+#'       \eqn{p_T \sim \text{Beta}(a_T, b_T)} and
+#'       \eqn{p_C \sim \text{Beta}(a_C, b_C)}, the probability
+#'       \deqn{P(p_T > p_C) = \int_0^1 I_x(a_C, b_C)\, f_{a_T,b_T}(x)\,dx}
+#'       where \eqn{I_x(a,b)} is the regularized incomplete beta function
+#'       (\code{\link[stats]{pbeta}}) and \eqn{f_{a_T,b_T}} is the Beta
+#'       density.
+#'       This is computed via \code{\link[stats]{integrate}} and is exact to
+#'       machine precision, but substantially slower than the normal
+#'       approximation because each element requires scalar numerical
+#'       integration.}
+#'   }
 #'
 #' @return An object of class \code{"ecomparison"} with components:
 #' \describe{
@@ -34,20 +58,52 @@
 #' The group sequential method uses an O'Brien-Fleming-like alpha spending
 #' function with equally-spaced looks. The calibrated Bayesian method uses
 #' a \code{Beta(0.5, 0.5)} (Jeffreys) prior on each arm, computes the
-#' posterior probability \eqn{P(p_T > p_C \mid \text{data})} analytically,
-#' and calibrates the decision threshold to achieve the nominal Type I error.
+#' posterior probability \eqn{P(p_T > p_C \mid \text{data})}, and calibrates
+#' the decision threshold to achieve the nominal Type I error.
+#'
+#' \strong{Posterior probability computation.}
+#' The posterior probability \eqn{P(p_T > p_C \mid \text{data})} for
+#' independent Beta posteriors can be computed in two ways (controlled by
+#' \code{posterior_method}):
+#'
+#' \enumerate{
+#'   \item \strong{Normal approximation} (\code{"normal"}, default): Each Beta
+#'     posterior is approximated by a Gaussian with matched mean and variance.
+#'     The probability reduces to a single \code{pnorm} call per cell. This is
+#'     extremely fast and suitable for the simulation setting where per-arm
+#'     samples are typically \eqn{\ge 10}.
+#'
+#'   \item \strong{Exact via regularized incomplete beta function}
+#'     (\code{"exact"}): The exact probability is obtained by numerically
+#'     integrating \eqn{I_x(a_C, b_C) \cdot f_{a_T, b_T}(x)} over
+#'     \eqn{[0, 1]}, where \eqn{I_x(a, b) = } \code{pbeta(x, a, b)} is the
+#'     regularized incomplete beta function. This is exact to machine
+#'     precision but requires scalar \code{integrate} calls, making it
+#'     substantially slower for large-scale simulations.
+#' }
+#'
+#' For most simulation purposes, \code{"normal"} is recommended. Use
+#' \code{"exact"} when you need machine-precision posterior probabilities,
+#' e.g., for validating results or when sample sizes per look are very small.
 #'
 #' @examples
 #' cmp <- simulate_comparison(p_C = 0.30, p_T_alt = 0.45, Nmax = 200,
 #'                            n_looks = 4, nrep = 1000, seed = 1)
 #' cmp
 #'
+#' # Use exact posterior probability via regularized incomplete beta function
+#' cmp_exact <- simulate_comparison(p_C = 0.30, p_T_alt = 0.45, Nmax = 200,
+#'                                  n_looks = 4, nrep = 500, seed = 1,
+#'                                  posterior_method = "exact")
+#'
 #' @export
 simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
                                 alpha = 0.025,
                                 methods = c("evalue", "gs_obf", "naive_p",
                                             "cal_bayes"),
-                                nrep = 5000, seed = 42, lambda = NULL) {
+                                nrep = 5000, seed = 42, lambda = NULL,
+                                posterior_method = c("normal", "exact")) {
+  posterior_method <- match.arg(posterior_method)
   stopifnot(p_T_alt > p_C, p_T_alt < 1, p_C > 0, p_C < 1)
   stopifnot(Nmax >= n_looks * 2)
   stopifnot(n_looks >= 1)
@@ -89,7 +145,8 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
   if ("cal_bayes" %in% methods) {
     bayes_thresh <- .calibrate_bayes_threshold_vec(
       cumT_null, cumC_null, look_times, alpha,
-      nrep_cal = min(nrep, 5000)
+      nrep_cal = min(nrep, 5000),
+      posterior_method = posterior_method
     )
   }
 
@@ -151,8 +208,8 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
 
       } else if (m == "cal_bayes") {
         nn <- matrix(look_times, nrow = nrep, ncol = length(look_times), byrow = TRUE)
-        # Analytic P(p_T > p_C | data) for independent Beta posteriors
-        pp <- .posterior_prob_matrix(cumT, cumC, nn)
+        # P(p_T > p_C | data) for independent Beta posteriors
+        pp <- .posterior_prob_matrix(cumT, cumC, nn, method = posterior_method)
         crossed <- pp >= bayes_thresh
         .store_results(crossed, look_times, Nmax, scenario, nrep,
                        rej_null, rej_alt, stop_null, stop_alt) -> tmp
@@ -216,20 +273,64 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
        stop_null = stop_null, stop_alt = stop_alt)
 }
 
-#' Analytic P(p_T > p_C | data) for independent Beta posteriors (vectorized)
+#' P(p_T > p_C | data) for Independent Beta Posteriors (Vectorized)
 #'
-#' Uses the normal approximation to the Beta posterior difference, which is
-#' fast and accurate for n >= 10. For small n, the approximation is slightly
-#' less accurate but sufficient for simulation-based calibration.
+#' Computes the posterior probability that the treatment arm response rate
+#' exceeds the control arm response rate, given independent Beta posteriors
+#' under a Jeffreys \code{Beta(0.5, 0.5)} prior.
+#'
+#' Two methods are available:
+#' \describe{
+#'   \item{\code{"normal"}}{Normal approximation to the Beta posterior
+#'     difference. Each Beta is approximated by a Gaussian with matched
+#'     mean and variance, so \eqn{P(p_T > p_C) \approx \Phi(\mu / \sigma)}
+#'     where \eqn{\mu = E[p_T] - E[p_C]} and
+#'     \eqn{\sigma = \sqrt{Var(p_T) + Var(p_C)}}. Extremely fast
+#'     (fully vectorized, no loops) and accurate for per-arm \eqn{n \ge 10}.}
+#'   \item{\code{"exact"}}{Exact computation via numerical integration of
+#'     the regularized incomplete beta function:
+#'     \deqn{P(p_T > p_C) = \int_0^1 I_x(a_C, b_C)\, f_{a_T,b_T}(x)\,dx}
+#'     where \eqn{I_x(a, b) = } \code{pbeta(x, a, b)} is the regularized
+#'     incomplete beta function and \eqn{f} is the Beta density. Exact to
+#'     machine precision but requires element-wise \code{integrate} calls.}
+#' }
+#'
+#' @param cumT Matrix (nrep x n_looks) of cumulative treatment successes.
+#' @param cumC Matrix (nrep x n_looks) of cumulative control successes.
+#' @param nn Matrix (nrep x n_looks) of per-arm sample sizes at each look.
+#' @param method Character: \code{"normal"} (default) or \code{"exact"}.
+#'
+#' @return Matrix of same dimensions as \code{cumT} with posterior
+#'   probabilities.
+#'
 #' @keywords internal
-.posterior_prob_matrix <- function(cumT, cumC, nn) {
+.posterior_prob_matrix <- function(cumT, cumC, nn, method = "normal") {
   # Jeffreys prior: Beta(0.5, 0.5)
   a_T <- 0.5 + cumT
   b_T <- 0.5 + nn - cumT
   a_C <- 0.5 + cumC
   b_C <- 0.5 + nn - cumC
 
-  # Normal approximation to Beta posteriors:
+  if (method == "exact") {
+    # Exact computation using the regularized incomplete beta function.
+    # P(p_T > p_C) = integral_0^1 pbeta(x, a_C, b_C) * dbeta(x, a_T, b_T) dx
+    result <- matrix(NA_real_, nrow = nrow(cumT), ncol = ncol(cumT))
+    for (j in seq_len(ncol(cumT))) {
+      result[, j] <- mapply(
+        function(aT, bT, aC, bC) {
+          stats::integrate(
+            function(x) stats::pbeta(x, aC, bC) * stats::dbeta(x, aT, bT),
+            lower = 0, upper = 1,
+            rel.tol = 1e-10
+          )$value
+        },
+        a_T[, j], b_T[, j], a_C[, j], b_C[, j]
+      )
+    }
+    return(result)
+  }
+
+  # Default: Normal approximation to Beta posteriors
   # E[p_T] = a_T/(a_T+b_T), Var[p_T] = a_T*b_T / ((a_T+b_T)^2 * (a_T+b_T+1))
   n_T <- a_T + b_T
   n_C <- a_C + b_C
@@ -246,16 +347,18 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
 }
 
 #' Calibrate Bayesian threshold using vectorized approach
+#' @param posterior_method Passed to \code{.posterior_prob_matrix}.
 #' @keywords internal
 .calibrate_bayes_threshold_vec <- function(cumT_null, cumC_null, look_times,
-                                           alpha, nrep_cal = 5000) {
+                                           alpha, nrep_cal = 5000,
+                                           posterior_method = "normal") {
   # Use at most nrep_cal rows from the null data
   nr <- min(nrow(cumT_null), nrep_cal)
   cumT <- cumT_null[seq_len(nr), , drop = FALSE]
   cumC <- cumC_null[seq_len(nr), , drop = FALSE]
   nn <- matrix(look_times, nrow = nr, ncol = length(look_times), byrow = TRUE)
 
-  pp <- .posterior_prob_matrix(cumT, cumC, nn)
+  pp <- .posterior_prob_matrix(cumT, cumC, nn, method = posterior_method)
   max_pp <- apply(pp, 1, max)
   stats::quantile(max_pp, 1 - alpha, names = FALSE)
 }
@@ -267,9 +370,34 @@ simulate_comparison <- function(p_C, p_T_alt, Nmax, n_looks = 4,
   z_alpha / sqrt(info_frac)
 }
 
+#' Scalar P(p_T > p_C) for Independent Beta Posteriors
+#'
+#' Computes \eqn{P(p_T > p_C)} for scalar Beta posterior parameters.
+#' Supports both a fast normal approximation and the exact computation
+#' via the regularized incomplete beta function.
+#'
+#' @param a_T,b_T Shape parameters of the treatment Beta posterior.
+#' @param a_C,b_C Shape parameters of the control Beta posterior.
+#' @param method Character: \code{"normal"} (default) for fast Gaussian
+#'   approximation, or \code{"exact"} for exact numerical integration using
+#'   the regularized incomplete beta function
+#'   \eqn{I_x(a,b) = } \code{pbeta(x, a, b)}.
+#'
+#' @return Scalar probability.
 #' @keywords internal
-.posterior_prob_greater <- function(a_T, b_T, a_C, b_C, nsim = 5000) {
-  # Keep for backward compatibility / standalone use
+.posterior_prob_greater <- function(a_T, b_T, a_C, b_C,
+                                   method = "normal") {
+  if (method == "exact") {
+    # Exact: P(p_T > p_C) = integral_0^1 pbeta(x, a_C, b_C) * dbeta(x, a_T, b_T) dx
+    # Uses the regularized incomplete beta function I_x(a_C, b_C) = pbeta(x, a_C, b_C)
+    return(stats::integrate(
+      function(x) stats::pbeta(x, a_C, b_C) * stats::dbeta(x, a_T, b_T),
+      lower = 0, upper = 1,
+      rel.tol = 1e-10
+    )$value)
+  }
+
+  # Normal approximation (default)
   n_T <- a_T + b_T
   n_C <- a_C + b_C
   mu_T <- a_T / n_T

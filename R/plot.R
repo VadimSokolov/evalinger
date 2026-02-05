@@ -105,14 +105,21 @@ plot_hybrid <- function(eproc, look_times, Nmax, alpha = 0.025,
     # E-process panel
     nn <- seq_len(eproc$n)
     plot(nn, eproc$log_evalue, type = "l", col = "steelblue", lwd = 1.5,
-         xlab = "n per arm", ylab = "log(E)", main = "E-process")
-    abline(h = eproc$threshold, col = "red", lty = 2)
+         xlab = "n per arm", ylab = "log(E)", main = "E-process monitoring")
+    abline(h = eproc$threshold, col = "red", lty = 2, lwd = 1.5)
+    legend("topleft",
+           legend = c("E-process", bquote("E-value threshold log(1/" * alpha * ")")),
+           col = c("steelblue", "red"), lty = c(1, 2), lwd = 1.5, bty = "n")
     # GS panel
     plot(look_times, z_stats, type = "b", pch = 19, col = "darkorange",
          ylim = range(c(z_stats, obf)),
          xlab = "n per arm", ylab = "Z-statistic",
          main = "Group sequential (OBF)")
     lines(look_times, obf, col = "red", lty = 2, lwd = 1.5)
+    legend("topright",
+           legend = c("Z-statistic", "GS boundary (OBF)"),
+           col = c("darkorange", "red"), lty = c(1, 2), pch = c(19, NA),
+           lwd = 1.5, bty = "n")
     par(mfrow = c(1, 1))
     return(invisible(NULL))
   }
@@ -120,24 +127,50 @@ plot_hybrid <- function(eproc, look_times, Nmax, alpha = 0.025,
   df_e <- data.frame(n = seq_len(eproc$n), log_e = eproc$log_evalue)
   df_gs <- data.frame(n = look_times, z = z_stats, bound = obf)
 
+  thresh_label <- paste0("E-value threshold log(1/a) = ",
+                         sprintf("%.1f", eproc$threshold))
+
   p1 <- ggplot2::ggplot(df_e, ggplot2::aes(x = .data$n, y = .data$log_e)) +
-    ggplot2::geom_line(color = "steelblue", linewidth = 0.7) +
-    ggplot2::geom_hline(yintercept = eproc$threshold, linetype = "dashed",
-                        color = "red") +
+    ggplot2::geom_line(ggplot2::aes(color = "E-process"), linewidth = 0.7) +
+    ggplot2::geom_hline(ggplot2::aes(yintercept = eproc$threshold,
+                                     linetype = thresh_label),
+                        color = "red", linewidth = 0.7) +
+    ggplot2::scale_color_manual(name = NULL,
+                                values = c("E-process" = "steelblue")) +
+    ggplot2::scale_linetype_manual(name = NULL,
+                                   values = stats::setNames("dashed", thresh_label)) +
+    ggplot2::guides(
+      color = ggplot2::guide_legend(order = 1,
+        override.aes = list(linetype = "solid")),
+      linetype = ggplot2::guide_legend(order = 2,
+        override.aes = list(color = "red"))
+    ) +
     ggplot2::labs(x = "Observations per arm", y = "log(E)",
                   title = "E-process monitoring") +
-    ggplot2::theme_minimal(base_size = 11)
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(legend.position = "bottom")
 
   p2 <- ggplot2::ggplot(df_gs) +
-    ggplot2::geom_point(ggplot2::aes(x = .data$n, y = .data$z),
-                        size = 3, color = "darkorange") +
-    ggplot2::geom_line(ggplot2::aes(x = .data$n, y = .data$z),
-                       color = "darkorange") +
-    ggplot2::geom_line(ggplot2::aes(x = .data$n, y = .data$bound),
-                       color = "red", linetype = "dashed") +
+    ggplot2::geom_point(ggplot2::aes(x = .data$n, y = .data$z,
+                                     color = "Z-statistic"),
+                        size = 3) +
+    ggplot2::geom_line(ggplot2::aes(x = .data$n, y = .data$z,
+                                    color = "Z-statistic")) +
+    ggplot2::geom_line(ggplot2::aes(x = .data$n, y = .data$bound,
+                                    color = "GS boundary (OBF)"),
+                       linetype = "dashed") +
+    ggplot2::scale_color_manual(name = NULL,
+                                values = c("Z-statistic" = "darkorange",
+                                           "GS boundary (OBF)" = "red")) +
+    ggplot2::guides(
+      color = ggplot2::guide_legend(
+        override.aes = list(linetype = c("dashed", "solid"),
+                            shape = c(NA, 19)))
+    ) +
     ggplot2::labs(x = "Observations per arm", y = "Z-statistic",
                   title = "Group sequential (OBF boundary)") +
-    ggplot2::theme_minimal(base_size = 11)
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(legend.position = "bottom")
 
   # Stack vertically if patchwork is available, otherwise print side by side
   if (requireNamespace("patchwork", quietly = TRUE)) {

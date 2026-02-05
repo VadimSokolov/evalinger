@@ -1,19 +1,31 @@
 # evalinger Shiny App
 # Design Calculator, Monitoring Dashboard, Method Comparison
 #
-# Launch with: shiny::runApp(system.file("shiny", package = "evalinger"))
+# Launch locally:  shiny::runApp(system.file("shiny", package = "evalinger"))
+# Deploy:          source(system.file("shiny", "deploy.R", package = "evalinger"))
 
 library(shiny)
 library(bslib)
 
-# Source package functions if not installed
+# Load evalinger functions — try installed package first, then local R/ dir
+# (the deploy.R script copies R/ alongside app.R for shinyapps.io)
 pkg_loaded <- requireNamespace("evalinger", quietly = TRUE)
-if (!pkg_loaded) {
-  pkg_dir <- normalizePath(file.path(dirname(sys.frame(1)$ofile %||% "."),
-                                     "..", ".."), mustWork = FALSE)
-  r_files <- list.files(file.path(pkg_dir, "R"), full.names = TRUE)
-  if (length(r_files) > 0) {
-    for (f in sort(r_files)) source(f, local = TRUE)
+if (pkg_loaded) {
+  library(evalinger)
+} else {
+  # Look for bundled R/ directory (created by deploy.R for shinyapps.io)
+  candidate_dirs <- c(
+    file.path(getwd(), "R"),
+    file.path(dirname(sys.frame(1)$ofile %||% "."), "R")
+  )
+  r_dir <- Find(dir.exists, candidate_dirs)
+  if (!is.null(r_dir)) {
+    r_files <- sort(list.files(r_dir, pattern = "\\.R$", full.names = TRUE))
+    for (f in r_files) source(f, local = FALSE)
+  } else {
+    stop("evalinger package not installed and R/ source directory not found.\n",
+         "Install with: devtools::install_github('VadimSokolov/evalinger')\n",
+         "Or use deploy.R to create a self-contained deployment bundle.")
   }
 }
 

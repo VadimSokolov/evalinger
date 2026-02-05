@@ -33,10 +33,10 @@ The `evalinger` package provides a complete toolkit:
 
 ```r
 # Install from GitHub
-devtools::install_github("vsokolov/evalinger")
+devtools::install_github("VadimSokolov/evalinger")
 
 # Or using pak
-pak::pak("vsokolov/evalinger")
+pak::pak("VadimSokolov/evalinger")
 ```
 
 ## Quick start
@@ -95,7 +95,7 @@ shiny::runApp(system.file("shiny", package = "evalinger"))
 
 ```r
 install.packages(c("shiny", "bslib", "rsconnect"))
-devtools::install_github("vsokolov/evalinger")
+devtools::install_github("VadimSokolov/evalinger")
 ```
 
 2. Configure your shinyapps.io account:
@@ -136,7 +136,7 @@ is not installed, but installing the package is recommended for production.
 FROM rocker/shiny:4.4.0
 
 RUN R -e "install.packages('devtools'); \
-          devtools::install_github('vsokolov/evalinger'); \
+          devtools::install_github('VadimSokolov/evalinger'); \
           install.packages(c('bslib'))"
 
 COPY inst/shiny /srv/shiny-server/evalinger
@@ -184,7 +184,7 @@ devtools::test()
   title   = {E-values for Adaptive Clinical Trials: A Practical Methodology
              for Anytime-Valid Monitoring and Adaptation},
   year    = {2026},
-  note    = {Companion R package: https://github.com/vsokolov/evalinger}
+  note    = {Companion R package: https://github.com/VadimSokolov/evalinger}
 }
 ```
 

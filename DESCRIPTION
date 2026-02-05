@@ -36,5 +36,5 @@ Suggests:
     rmarkdown
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://github.com/vsokolov/evalinger
-BugReports: https://github.com/vsokolov/evalinger/issues
+URL: https://github.com/VadimSokolov/evalinger
+BugReports: https://github.com/VadimSokolov/evalinger/issues

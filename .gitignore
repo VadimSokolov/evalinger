@@ -16,3 +16,6 @@ Thumbs.db
 # Editor
 *.swp
 *~
+
+# Paper simulation outputs (regenerate with Rscript paper/run_*.R)
+paper/sims/

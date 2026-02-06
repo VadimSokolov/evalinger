@@ -184,8 +184,8 @@ print(irregular_comparison)
 saveRDS(irregular_comparison, file.path(out_dir, "irregular_comparison.rds"))
 
 # Figure: bar chart comparing power under different schedules
-pdf(file.path(out_dir, "irregular-comparison.pdf"), width = 7, height = 4.5)
-par(mar = c(5, 4.5, 2, 1))
+pdf(file.path(out_dir, "irregular-comparison.pdf"), width = 8, height = 5)
+par(mar = c(5, 4.5, 3, 1))
 
 # Extract power values
 ev_power <- irregular_comparison$alt_rej[irregular_comparison$method == "E-value"]
@@ -198,18 +198,16 @@ bp <- barplot(
   beside = TRUE,
   names.arg = scenario_labels,
   col = c("#D55E00", "#0072B2"),
-  ylim = c(0, 1),
+  ylim = c(0, 1.12),
   ylab = "Power (rejection probability under H1)",
   main = expression("E-value vs group sequential power under different look schedules (" *
                     alpha == 0.025 * ")")
 )
-# Add Type I error as text
-ev_t1e <- irregular_comparison$null_rej[irregular_comparison$method == "E-value"]
-gs_t1e <- irregular_comparison$null_rej[irregular_comparison$method == "GS (recalibrated)"]
+# Add power as text above bars
 text(bp[1, ], ev_power + 0.03, sprintf("%.1f%%", 100 * ev_power), cex = 0.7)
 text(bp[2, ], gs_power + 0.03, sprintf("%.1f%%", 100 * gs_power), cex = 0.7)
 
-legend("topright",
+legend("topleft",
        legend = c("E-value (fixed threshold)", "GS (recalibrated per schedule)"),
        fill = c("#D55E00", "#0072B2"),
        cex = 0.8, bty = "n")
@@ -351,7 +349,7 @@ idx <- 20:Nmax_fut
 plot(idx, cs_ex$delta_hat[idx], type = "l", lwd = 2,
      ylim = range(c(cs_ex$lower[idx], cs_ex$upper[idx], delta_min)),
      xlab = "Patient pairs", ylab = expression(hat(delta) == hat(p)[T] - hat(p)[C]),
-     main = "Confidence sequence futility")
+     main = "Confidence sequence futility", bty = "n")
 polygon(c(idx, rev(idx)),
         c(cs_ex$lower[idx], rev(cs_ex$upper[idx])),
         col = adjustcolor("steelblue", 0.2), border = NA)
@@ -376,7 +374,7 @@ legend("topright",
 plot(seq_len(Nmax_fut), fe_ex$log_evalue, type = "l", lwd = 2,
      col = "#D55E00",
      xlab = "Patient pairs", ylab = expression(log ~ E[n]^"'"),
-     main = "Reciprocal e-process futility")
+     main = "Reciprocal e-process futility", bty = "n")
 abline(h = log(1 / 0.10), lty = 3, col = "black", lwd = 1.5)
 abline(h = 0, col = "gray80")
 if (!is.na(fe_ex$first_futile)) {
@@ -505,7 +503,7 @@ plot(nn, ep_rec$log_evalue, type = "l", lwd = 1.5,
      col = "#D55E00",
      xlab = "Patient pairs",
      ylab = expression(log ~ E[n]),
-     main = "RECOVERY-like trial: e-process")
+     main = "RECOVERY-like trial: e-process", bty = "n")
 abline(h = threshold_log_e, lty = 3, col = "black", lwd = 1.5)
 abline(h = 0, col = "gray80")
 if (ep_rec$rejected) {
@@ -528,7 +526,7 @@ plot(idx2, cs_rec$delta_hat[idx2], type = "l", lwd = 2,
      ylim = range(c(cs_rec$lower[idx2], cs_rec$upper[idx2])),
      xlab = "Patient pairs",
      ylab = expression(hat(delta) == hat(p)[UC] - hat(p)[Dex]),
-     main = "RECOVERY-like trial: confidence sequence")
+     main = "RECOVERY-like trial: confidence sequence", bty = "n")
 polygon(c(idx2, rev(idx2)),
         c(cs_rec$lower[idx2], rev(cs_rec$upper[idx2])),
         col = adjustcolor("steelblue", 0.2), border = NA)

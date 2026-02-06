@@ -104,7 +104,7 @@ plot.confseq <- function(x, ...) {
     nn <- seq_len(x$n)
     plot(nn, x$delta_hat, type = "l", ylim = range(c(x$lower, x$upper)),
          xlab = "Observations per arm", ylab = "Treatment effect",
-         main = "Confidence sequence for treatment effect")
+         main = "Confidence sequence for treatment effect", bty = "n")
     lines(nn, x$lower, lty = 2, col = "blue")
     lines(nn, x$upper, lty = 2, col = "blue")
     abline(h = 0, col = "gray", lty = 3)

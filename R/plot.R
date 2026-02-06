@@ -26,7 +26,7 @@ plot.eprocess <- function(x, log_scale = TRUE, ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     plot(nn, y, type = "l", col = "steelblue", lwd = 1.5,
          xlab = "Observations per arm", ylab = ylab,
-         main = "E-process sample path")
+         main = "E-process sample path", bty = "n")
     abline(h = thresh, col = "red", lty = 2, lwd = 1.5)
     if (x$rejected) {
       abline(v = x$rejection_time, col = "gray50", lty = 3)
@@ -107,7 +107,7 @@ plot_hybrid <- function(eproc, look_times, Nmax, alpha = 0.025,
     # E-process panel
     nn <- seq_len(eproc$n)
     plot(nn, eproc$log_evalue, type = "l", col = "steelblue", lwd = 1.5,
-         xlab = "n per arm", ylab = "log(E)", main = "E-process monitoring")
+         xlab = "n per arm", ylab = "log(E)", main = "E-process monitoring", bty = "n")
     abline(h = eproc$threshold, col = "red", lty = 2, lwd = 1.5)
     legend("topleft",
            legend = c("E-process", bquote("E-value threshold log(1/" * alpha * ")")),
@@ -116,7 +116,7 @@ plot_hybrid <- function(eproc, look_times, Nmax, alpha = 0.025,
     plot(look_times, z_stats, type = "b", pch = 19, col = "darkorange",
          ylim = range(c(z_stats, obf)),
          xlab = "n per arm", ylab = "Z-statistic",
-         main = "Group sequential (OBF)")
+         main = "Group sequential (OBF)", bty = "n")
     lines(look_times, obf, col = "red", lty = 2, lwd = 1.5)
     legend("topright",
            legend = c("Z-statistic", "GS boundary (OBF)"),

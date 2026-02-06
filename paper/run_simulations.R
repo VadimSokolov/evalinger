@@ -139,7 +139,7 @@ par(mfrow = c(1, 2), mar = c(4.5, 4.5, 2, 1))
 # Null paths
 plot(NULL, xlim = c(1, Nmax), ylim = c(-15, threshold + 2),
      xlab = "Observations per arm", ylab = expression(log(E[n])),
-     main = expression("Under " * H[0]))
+     main = expression("Under " * H[0]), bty = "n")
 abline(h = threshold, col = "red", lty = 2, lwd = 2)
 cols_null <- colorRampPalette(c("steelblue", "gray60"))(n_fig_paths)
 for (i in seq_len(n_fig_paths)) {
@@ -155,7 +155,7 @@ legend("bottomleft", legend = c(expression(log(1/alpha)), "E-process paths"),
 # Alternative paths
 plot(NULL, xlim = c(1, Nmax), ylim = c(-10, 20),
      xlab = "Observations per arm", ylab = expression(log(E[n])),
-     main = expression("Under " * H[1]))
+     main = expression("Under " * H[1]), bty = "n")
 abline(h = threshold, col = "red", lty = 2, lwd = 2)
 cols_alt <- colorRampPalette(c("darkorange", "firebrick"))(n_fig_paths)
 for (i in seq_len(n_fig_paths)) {

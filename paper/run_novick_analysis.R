@@ -167,7 +167,7 @@ par(mar = c(4.5, 4.5, 2, 1))
 plot(nn, log_e_AB, type = "s", col = "#D55E00", lwd = 2,
      xlab = "Patient pairs", ylab = expression(log~E[n]),
      ylim = ylim,
-     main = "E-process trajectories: Novick (1965) death rates")
+     main = "E-process trajectories: Novick (1965) death rates", bty = "n")
 lines(nn, log_e_AD, type = "s", col = "#0072B2", lwd = 2)
 lines(nn, log_e_DB, type = "s", col = "#009E73", lwd = 2)
 lines(nn, log_e_CB, type = "s", col = "gray50", lwd = 1.5, lty = 2)
@@ -198,7 +198,7 @@ idx <- 10:n_per_arm
 plot(idx, cs_AB$delta_hat[idx], type = "l", lwd = 2,
      ylim = c(min(cs_AB$lower[idx]), max(cs_AB$upper[idx])),
      xlab = "Patient pairs", ylab = expression(hat(delta) == hat(p)[A] - hat(p)[B]),
-     main = "Confidence sequence: Treatment A vs B mortality difference")
+     main = "Confidence sequence: Treatment A vs B mortality difference", bty = "n")
 polygon(c(idx, rev(idx)),
         c(cs_AB$lower[idx], rev(cs_AB$upper[idx])),
         col = adjustcolor("steelblue", 0.25), border = NA)

@@ -19,3 +19,12 @@ Thumbs.db
 
 # Paper simulation outputs (regenerate with Rscript paper/run_*.R)
 paper/sims/
+
+# Paper build artifacts (LaTeX / Quarto)
+paper/*.aux
+paper/*.log
+paper/*.tex
+paper/*.pdf
+paper/*.sty
+paper/*.zip
+paper/_extensions/

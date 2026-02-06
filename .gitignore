@@ -28,3 +28,7 @@ paper/*.pdf
 paper/*.sty
 paper/*.zip
 paper/_extensions/
+
+# Personal documents
+summary.md
+questions.md
